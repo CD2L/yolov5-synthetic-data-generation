@@ -12,8 +12,8 @@ warnings.filterwarnings("ignore")
 
 
 dim = 1000
-n_samples = 5
-n_texts = 12
+n_samples = 2000
+n_texts = 6
 
 white = (255, 255, 255)
 black = (0, 0, 0)
@@ -35,6 +35,9 @@ with open(f"data/labelmap.pbtxt", "a") as f:
     )
 
 
+qr_code = Image.open("code.png")
+qr_code = qr_code.resize((100,100))
+
 def make_text(
     n_words: int = 20,
     n_words_per_line: int = 8,
@@ -54,7 +57,7 @@ def make_text(
     for i, _ in enumerate(text):
         if not i % n_words_per_line and i:
             text.insert(i - 1, "\n")
-    return " ".join(text)
+    return "".join(text)
 
 
 def iou(boxA, boxB):
@@ -76,16 +79,27 @@ for i in tqdm(range(n_samples), ascii=True):
     boxes = []
 
     for j in range(n_texts):
-        mask = Image.new(mode="RGBA", size=(dim, dim), color=(255, 255, 255, 0))
+        mask = Image.new(mode="RGBA", size=(
+            dim, dim), color=(255, 255, 255, 0))
         draw = ImageDraw.Draw(mask)
 
-        xy = random.choices(np.linspace(0, mask.height, 100).astype(np.int64), k=2)
+        xy = random.choices(np.linspace(
+            0, mask.height, 100).astype(np.int64), k=2)
 
         draw = ImageDraw.Draw(mask)
-        font = ImageFont.truetype("arial.ttf", 20)
-        draw.text(xy, text := make_text(25, 5), black, font=font, anchor="mm")
+        font = ImageFont.truetype("./arial.ttf", 20)
 
-        draw.rectangle(mask.getbbox(), outline="red", fill=None)
+        draw.text((xy[0], xy[1]-random.randint(110, 230)), make_text(10, 4), black,
+                  font=font, anchor="mm", stroke_width=random.randrange(0, 1))
+
+        draw.text(xy, text := make_text(25, random.randrange(4, 5)), black,
+                  font=font, anchor="mm", stroke_width=random.randrange(0, 1))
+
+        # draw.rectangle(mask.getbbox(), outline="red", fill=None)
+        mask = mask.rotate(
+            angle=random.choice([0, -90, 90, 180]), fillcolor=white
+        )
+
         x0, y0, x1, y1 = mask.getbbox()
 
         width, height = abs(x0 - x1), abs(y0 - y1)
@@ -99,8 +113,26 @@ for i in tqdm(range(n_samples), ascii=True):
 
         if not j or (cond > 0.13).sum() <= 1:
             with open(f"data/labels/{i+1}.txt", "a") as f:
-                f.write("{} {} {} {} {}\n".format(0, x_center, y_center, width, height))
+                f.write("{} {} {} {} {}\n".format(
+                    0, x_center, y_center, width, height))
             image.paste(mask, None, mask)
             j += 1
 
-    image.save(f"data/images/{i+1}.png", format="PNG", quality=95, subsampling=0)
+
+    counter = 0
+    while True:
+        xy = random.choices(np.linspace(
+            0, mask.height, 50).astype(np.int64), k=2)
+        mask = Image.new(mode="RGBA", size=(
+            dim, dim), color=(255, 255, 255, 0))
+        mask.paste(qr_code, xy)
+        cond = np.asarray([iou(qr_code.getbbox(), b) for i, b in enumerate(boxes)])
+        if (cond > 0.13).sum() <= 2:
+            image.paste(mask, None, mask)
+            counter += 1
+            
+        if counter in [2, 100]:
+            break
+
+    image.save(f"data/images/{i+1}.png",
+               format="PNG", quality=95, subsampling=0)
