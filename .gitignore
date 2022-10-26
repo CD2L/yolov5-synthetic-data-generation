@@ -1,0 +1,6 @@
+data/
+data/processed
+data/raw/images
+
+*.ipynb
+.ipynb_checkpoints/
